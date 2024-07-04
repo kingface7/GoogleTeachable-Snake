@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teachable Machine Snake Game</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            position: fixed;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+        }
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 60px; /* Adjusted to make space for the title */
+        }
+        canvas {
+            border: 1px solid black;
+            margin-top: 20px;
+        }
+        .button-container {
+            margin: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #webcam-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+        }
+        #label-container {
+            margin-top: 10px;
+            font-size: 18px;
+        }
+        #sound-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            height: 200px;
+            background-color: red;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Teachable Machine Snake Game</h1>
+    <div id="webcam-container"></div>
+    <div id="game-container">
+        <div class="button-container">
+            <button type="button" onclick="init()">Start</button>
+            <button type="button" onclick="resetGame()">Reset</button>
+            <button type="button" onclick="stopGame()">Stop</button>
+        </div>
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <div id="label-container"></div>
+    </div>
+    <button id="sound-button" onclick="playSound()">TOP SECRET<br>DO NOT PRESS</button>
+    <audio id="sound-effect" src="Ew.mp3"></audio>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script type="text/javascript">
+        const URL = "https://teachablemachine.withgoogle.com/models/KUPeA3qO3/";
+        let model, webcam, labelContainer, maxPredictions;
+        let direction = "right"; // default direction
+        let newDirection = direction; // new direction to be validated and applied
+        const directions = ["up", "down", "left", "right"];
+        
+        // Load the image model and setup the webcam
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+            const flip = true;
+            webcam = new tmImage.Webcam(200, 200, flip);
+            await webcam.setup();
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+            initGame();
+        }
+
+        async function loop() {
+            webcam.update();
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            let highestPrediction = { className: '', probability: 0 };
+            for (let i = 0; i < maxPredictions; i++) {
+                if (prediction[i].probability > highestPrediction.probability) {
+                    highestPrediction = prediction[i];
+                }
+            }
+            newDirection = highestPrediction.className.toLowerCase();
+            labelContainer.innerHTML = `Direction: ${newDirection} (${highestPrediction.probability.toFixed(2)})`;
+        }
+
+        let canvas, ctx;
+        let snake = [{ x: 10, y: 10 }];
+        let food = { x: 15, y: 15 };
+        const gridSize = 20;
+        let gameInterval;
+
+        function initGame() {
+            canvas = document.getElementById("gameCanvas");
+            ctx = canvas.getContext("2d");
+            document.addEventListener("keydown", keyDownEvent);
+            gameInterval = setInterval(gameLoop, 200);
+        }
+
+        function resetGame() {
+            clearInterval(gameInterval);
+            snake = [{ x: 10, y: 10 }];
+            food = { x: 15, y: 15 };
+            direction = "right";
+            newDirection = direction;
+            labelContainer.innerHTML = '';
+            gameInterval = setInterval(gameLoop, 200);
+        }
+
+        function stopGame() {
+            clearInterval(gameInterval);
+            labelContainer.innerHTML = 'Game Stopped';
+        }
+
+        function playSound() {
+            const soundEffect = document.getElementById("sound-effect");
+            soundEffect.play();
+        }
+
+        function keyDownEvent(e) {
+            switch (e.keyCode) {
+                case 37:
+                    newDirection = "left";
+                    break;
+                case 38:
+                    newDirection = "up";
+                    break;
+                case 39:
+                    newDirection = "right";
+                    break;
+                case 40:
+                    newDirection = "down";
+                    break;
+            }
+        }
+
+        function gameLoop() {
+            updateDirection();
+            update();
+            draw();
+        }
+
+        function updateDirection() {
+            if ((direction === "left" || direction === "right") && (newDirection === "left" || newDirection === "right")) {
+                // Invalid change from left to right or vice versa
+                return;
+            }
+            if ((direction === "up" || direction === "down") && (newDirection === "up" || newDirection === "down")) {
+                // Invalid change from up to down or vice versa
+                return;
+            }
+            direction = newDirection;
+        }
+
+        function update() {
+            const head = { ...snake[0] };
+
+            switch (direction) {
+                case "left":
+                    head.x--;
+                    break;
+                case "up":
+                    head.y--;
+                    break;
+                case "right":
+                    head.x++;
+                    break;
+                case "down":
+                    head.y++;
+                    break;
+            }
+
+            if (head.x === food.x && head.y === food.y) {
+                snake.push({});
+                food = { x: Math.floor(Math.random() * gridSize), y: Math.floor(Math.random() * gridSize) };
+            }
+
+            for (let i = snake.length - 1; i > 0; i--) {
+                snake[i] = { ...snake[i - 1] };
+            }
+
+            snake[0] = head;
+
+            if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize || snakeCollision(head)) {
+                clearInterval(gameInterval);
+                alert("Game Over");
+            }
+        }
+
+        function snakeCollision(head) {
+            for (let i = 1; i < snake.length; i++) {
+                if (snake[i].x === head.x && snake[i].y === head.y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "black";
+            snake.forEach(part => {
+                ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize - 1, gridSize - 1);
+            });
+            ctx.fillStyle = "red";
+            ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 1, gridSize - 1);
+        }
+    </script>
+</body>
+</html>
