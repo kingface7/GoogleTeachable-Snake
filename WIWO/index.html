@@ -25,7 +25,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin-top: 60px; 
+            margin-top: 60px; /* Adjusted to make space for the title */
         }
         canvas {
             border: 1px solid black;
@@ -48,6 +48,20 @@
         #label-container {
             margin-top: 10px;
             font-size: 18px;
+        }
+        #score-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            text-align: right;
+            font-size: 20px;
+        }
+        #highscore-container {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            text-align: right;
+            font-size: 20px;
         }
         #sound-button {
             position: fixed;
@@ -79,6 +93,8 @@
         <canvas id="gameCanvas" width="400" height="400"></canvas>
         <div id="label-container"></div>
     </div>
+    <div id="score-container">Score: <span id="score">0</span></div>
+    <div id="highscore-container">Highscore: <span id="highscore">0</span></div>
     <button id="sound-button" onclick="playSound()">TOP SECRET<br>DO NOT PRESS</button>
     <audio id="sound-effect" src="Ew.mp3"></audio>
 
@@ -87,11 +103,13 @@
     <script type="text/javascript">
         const URL = "https://teachablemachine.withgoogle.com/models/KUPeA3qO3/";
         let model, webcam, labelContainer, maxPredictions;
-        let direction = "right"; 
-        let newDirection = direction; 
+        let direction = "right"; // default direction
+        let newDirection = direction; // new direction to be validated and applied
         const directions = ["up", "down", "left", "right"];
+        let score = 0;
+        let highscore = 0;
         
-        
+        // Load the image model and setup the webcam
         async function init() {
             const modelURL = URL + "model.json";
             const metadataURL = URL + "metadata.json";
@@ -135,7 +153,7 @@
             canvas = document.getElementById("gameCanvas");
             ctx = canvas.getContext("2d");
             document.addEventListener("keydown", keyDownEvent);
-            gameInterval = setInterval(gameLoop, 200);
+            gameInterval = setInterval(gameLoop, 700);
         }
 
         function resetGame() {
@@ -145,7 +163,9 @@
             direction = "right";
             newDirection = direction;
             labelContainer.innerHTML = '';
-            gameInterval = setInterval(gameLoop, 200);
+            score = 0;
+            updateScore();
+            gameInterval = setInterval(gameLoop, 700);
         }
 
         function stopGame() {
@@ -183,11 +203,11 @@
 
         function updateDirection() {
             if ((direction === "left" || direction === "right") && (newDirection === "left" || newDirection === "right")) {
-                
+                // Invalid change from left to right or vice versa
                 return;
             }
             if ((direction === "up" || direction === "down") && (newDirection === "up" || newDirection === "down")) {
-                
+                // Invalid change from up to down or vice versa
                 return;
             }
             direction = newDirection;
@@ -214,6 +234,11 @@
             if (head.x === food.x && head.y === food.y) {
                 snake.push({});
                 food = { x: Math.floor(Math.random() * gridSize), y: Math.floor(Math.random() * gridSize) };
+                score++;
+                if (score > highscore) {
+                    highscore = score;
+                }
+                updateScore();
             }
 
             for (let i = snake.length - 1; i > 0; i--) {
@@ -245,6 +270,11 @@
             });
             ctx.fillStyle = "red";
             ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 1, gridSize - 1);
+        }
+
+        function updateScore() {
+            document.getElementById("score").innerText = score;
+            document.getElementById("highscore").innerText = highscore;
         }
     </script>
 </body>
